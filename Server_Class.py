@@ -1,245 +1,159 @@
-import sys
-import threading
 import socket
-
-#
-# import socket
-#
-# # import threading library
-# import threading
-#
-# # Choose a port that is free
-# PORT = 50000
-#
-# # An IPv4 address is obtained
-# # for the server.
-# SERVER = '127.0.0.1'
-#
-# # Address is stored as a tuple
-# ADDRESS = (SERVER, PORT)
-#
-# # the format in which encoding
-# # and decoding will occur
-# FORMAT = "utf-8"
-#
-# # Lists that will contains
-# # all the clients connected to
-# # the server and their names.
-# clients, names = [], []
-#
-# # Create a new socket for
-# # the server
-# server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#
-# # bind the address of the
-# # server to the socket
-# server.bind((SERVER,PORT))
-#
-#
-# # function to start the connection
-# def startChat():
-#     print("server is working on " + SERVER)
-#
-#     # listening for connections
-#     server.listen()
-#
-#     while True:
-#         # accept connections and returns
-#         # a new connection to the client
-#         #  and  the address bound to it
-#         conn, addr = server.accept()
-#         conn.send("NAME".encode(FORMAT))
-#
-#         # 1024 represents the max amount
-#         # of data that can be received (bytes)
-#         name = conn.recv(1024).decode(FORMAT)
-#
-#         # append the name and client
-#         # to the respective list
-#         names.append(name)
-#         clients.append(conn)
-#
-#         print(f"Name is :{name}")
-#
-#         # broadcast message
-#         broadcastMessage(f"{name} has joined the chat!".encode(FORMAT))
-#
-#         conn.send('Connection successful!'.encode(FORMAT))
-#
-#         # Start the handling thread
-#         thread = threading.Thread(target=handle,
-#                                   args=(conn, addr))
-#         thread.start()
-#
-#         # no. of clients connected
-#         # to the server
-#         print(f"active connections {threading.activeCount() - 1}")
-#
-#
-# # method to handle the
-# # incoming messages
-# def handle(conn, addr):
-#     print(f"new connection {addr}")
-#     connected = True
-#
-#     while connected:
-#         # receive message
-#         message = conn.recv(1024)
-#
-#         # broadcast message
-#         broadcastMessage(message)
-#
-#     # close the connection
-#     conn.close()
-#
-#
-# # method for broadcasting
-# # messages to the each clients
-# def broadcastMessage(message):
-#     for client in clients:
-#         client.send(message)
-#
-#
-# # call the method to
-# # begin the communication
-# startChat()
-from tkinter import *
+import threading
+import os
+from os import listdir
+from os.path import join, isfile
 
 HOST = '127.0.0.1'
 PORT = 50000
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+BUFFERSIZE = 2048
 
-server_socket.bind((HOST, PORT))
-server_socket.listen(15)
-Socket_lst = []
-nick_names = []
+server = socket.socket(socket.AF_INET , socket.SOCK_STREAM)
+serverUDP = socket.socket(socket.AF_INET , socket.SOCK_DGRAM)
+server.bind((HOST , PORT))
+server.listen()
 
 
-class server:
+clients = []
+nickNames = []
+
+
+class udpPORT:
+    def __init__(self , available , client_address , sock):
+        self.available = available
+        self.client_address = client_address
+        self.sock = socket.socket(socket.AF_INET , socket.SOCK_DGRAM)
+
+class udpPORTS:
     def __init__(self):
-        # chat server window
-        self.window = Tk()
-        self.window.withdraw()
+        self.portsList = {port: udpPORT(False , None , None) for port in range(55000 , 55016)}
 
-        # login title
-        self.login = Toplevel()
-        self.login.title("Server")
-        self.login.resizable(height=False,width=False)
-        self.login.configure(width=500, height=500)
+    def addPort(self , port , client_address):
+        if not self.portsList[port].available:
+            self.portsList[port] = udpPORT(True , client_address , None)
 
+    def removePort(self , client_address):
+        for elem in self.portsList.items():
+            if elem[1].client_address == client_address:
+                self.portsList[elem[0].available] = False
+                self.portsList[elem[0].client_address] = None
 
-        # now we will create the label
+    def getAvailablePort(self):
+        for elem in self.portsList.items():
+            if not elem[1].available and elem[1].client_address is None:
+                return elem[0]
+        return None
 
-        self.log = Label(self.login, text="Please start the server to continue", justify=CENTER, font="Ariel")
-        self.log.place(relheight=0.15, relx=0.2, rely=0.07)
+portList = udpPORTS()
 
-        self.textCons = Text(self.window, width=20, height=2, bg="#17202A", fg="#EAECEE", font="Helvetica 14", padx=4,pady=4)
-        self.textCons.place(relheight=0.4, relwidth=1, rely=0.08)
+def sendFile(sock , filename , client_address):
+    with open(filename , "rb") as file:
+        while True:
+            bytes_read = file.read(BUFFERSIZE)
+            if not bytes_read:
+                break
+            sock.sendto(bytes_read , client_address)
 
-        # now we will create the continue button
-        self.continueB = Button(self.login, text="Start Server", font="Ariel", command=lambda: threading.Thread(target=self.server_chat()).start())
-        self.stopB = Button(self.login, text="Stop Server", font="Ariel", command=lambda:threading.Thread(target=self.stop_server()).start())
-        self.stopB.place(relx=0.5, rely=0.2)
-        self.continueB.place(relx=0.2, rely=0.2)
-        self.window.update_idletasks()
-        self.window.mainloop()
+def broadCast(message):
+    for client in clients:
+        client.send(message)
 
-    def stop_server(self):
-        server_socket.close()
+def receive():
+    while True:
+        client , address = server.accept()
+        print(f"Connected with {str(address)}")
+        client.send("NICK".encode())
+        nickName = client.recv(1024)
+        print(nickName)
+        nickNames.append(nickName.decode())
+        clients.append(client)
+        print(f"Nickname of the client is : {nickName}")
+        broadCast(f"{nickName} joined to the chat!\n".encode())
+        client.send("Connected to the server !\n".encode())
 
-    def server_chat(self):
-        print(" Server chat has been started successfully>>>" + HOST)
-        while 1:
-            print("Welcome to our chat room! , we are ready to go!")
-            connectionSocket, addr = server_socket.accept()  # -> The accept method of Python's socket class,
-            # accepts an incoming connection request from a TCP server <-
-            connectionSocket.send('NickName?'.encode())
-            name = connectionSocket.recv(1024)
-            nick_names.append(name)
-            Socket_lst.append(connectionSocket)
-            print(f'{name} has been join'.encode())
+        thread = threading.Thread(target=handle , args=(client,))
+        thread.start()
 
-            self.broadcast(f'{name} has been connect successfully!\n'.encode())
-            connectionSocket.send('Welcome to our chat!'.encode())
-            self.window.update_idletasks()
-            self.continueB.update_idletasks()
-            recv_thread = threading.Thread(target=self.clients_care, args=(connectionSocket, addr))
-            recv_thread.start()
+def handle(client):
+    while True:
+        # try:
+            case1= False
+            case2= False
+            message = client.recv(1024)
+            print(message)
+            msgstring = str(message)
+            msgstring = msgstring.split(" ")
+            print(msgstring)
+            if len(msgstring) > 1:
+                private = msgstring[2]
+                if private[0] == '/':
+                    destName = private[1:]
+                    if destName == 'download':
+                        filename = msgstring[3]
+                        destFileName = msgstring[4]
+                        destFileName = destFileName[0:-3]
+                        files = os.listdir(r'../FinalChat')
+                        if filename not in files:
+                            client.send(f"ERROR : {filename} is not exists !".encode())
+                            case2 = True
+                        else:
+                            port = portList.getAvailablePort()
+                            portList.portsList[port].sock.bind((socket.gethostbyname(socket.gethostname()), port))
+                            portList.portsList[port].available = True
+                            client.sendall(f"/download {socket.gethostbyname(socket.gethostname())} {port} {destFileName} {os.path.getsize(filename)}".encode())
+                            msg , client_address = portList.portsList[port].sock.recvfrom(4096)
+                            portList.portsList[port].client_address = client_address
+                            sendFile(portList.portsList[port].sock , filename , client_address)
+                            case2 = True
+                            print(f"[RECIEVED] : {msg}: {client_address}")
 
-    # The aim of this function is to send message to all of the client in our server
-    def broadcast(self,msg):
-        for sock in Socket_lst:
-            sock.send(msg)
-            # self.window.update_idletasks()
-            # self.continueB.update_idletasks()
+                            '''$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$'''
+                    elif str(destName) not in nickNames:
+                        client.send("This user is not online! \n".encode())
+                        case1 = True
+                    else:
+                        index = nickNames.index(str(destName))
+                        privateMsg = message.decode()
+                        privateMsg = str(privateMsg)
+                        privateMsg = privateMsg.split(" ")
+                        print(privateMsg)
+                        del privateMsg[0:3]
+                        privateMsg = " ".join(privateMsg)
+                        privateMsg = str(privateMsg)
+                        test = f"{nickNames[clients.index(client)]} [PRIVATE] : " + privateMsg
+                        dest = clients[index]
+                        dest.send(test.encode('utf-8'))
+                        client.send((f"Sent to {destName} [PRIVATE]: " + privateMsg).encode())
+                        case1 = True
+            if message =='get_users'.encode():
+                something = "SERVER MESSAGE ! \n----------- \nOnline members : \n"
+                for nick in nickNames:
+                    something += f"{nick}  \n"
+                something += "----------- \n"
+                client.send(something.encode())
+                case2 = True
 
+            if message == 'show_files'.encode():
+                path = r'../FinalChat'
+                filesListstr = "SERVER MESSAGE ! \n----------- \nFiles avaible : \n"
+                onlyfiles = [f for f in listdir(path) if isfile(join(path, f))]
+                files = os.listdir(path)
+                for f in files:
+                    filesListstr += f"{f} \n"
+                filesListstr += "----------- \n"
+                client.send(filesListstr.encode())
+                case2 = True
 
-# this function will help us to handle with connections and disconnection in our server
-    def clients_care(self,client, address):
+            if case1 == False and case2 == False:
+                # print(f"{nickNames[clients.index(client)]} : {message}")
+                broadCast(message)
+        # except: #Need to fix this , not enough professional
+        #     index = clients.index(client)
+        #     clients.remove(client)
+        #     client.close()
+        #     nickname = nickNames[index]
+        #     nickNames.remove(nickname)
 
-     while 1:
-         try:
-              msg = client.recv(1024)
+print("Server is running...")
+receive()
 
-              self.broadcast(msg)
-              # self.window.update_idletasks()
-              # self.continueB.update_idletasks()
-         except:
-              pos = Socket_lst.index(client)
-              Socket_lst.remove(client)
-              client.close()
-              name = nick_names[pos]
-              self.broadcast(f'{name} has been disconnected from the server!'.encode())
-              nick_names.remove(name)
-              # self.window.update_idletasks()
-              # self.continueB.update_idletasks()
-              break
-
-
-# The aim of this function is to receive connection from the clients
-# def recieve_connection():
-#     while 1:
-#         print("Welcome to our chat room! , we are ready to go!")
-#         connectionSocket, addr = server_socket.accept()         # -> The accept method of Python's socket class,
-#                                                                 # accepts an incoming connection request from a TCP server <-
-#         connectionSocket.send('NickName?'.encode())
-#         name = connectionSocket.recv(1024)
-#         nick_names.append(name)
-#         Socket_lst.append(connectionSocket)
-#         print(f'{name} has been join'.encode())
-#
-#         broadcast(f'{name} has been connect successfully!\n'.encode())
-#         connectionSocket.send('Welcome to our chat!'.encode())
-#         recv_thread = threading.Thread(target=clients_care, args=(connectionSocket,))
-#         recv_thread.start()
-#         ####################################################################################################################
-# connectionSocket.send('Show Online'.encode())
-# online = connectionSocket.recv(1024)
-# if online == 'Show Online':
-#     broadcast(f'There are {len(Socket_lst)} members in the chat')
-#     print(f"There are {len(Socket_lst)} in here")
-# else:
-#     continue
-# connectionSocket.send('Show Online'.encode())
-# online_members = connectionSocket.recv(1024)
-#
-# broadcast(f'There are {online_members} Online members'.encode())
-# print(f'There are {len(Socket_lst)} Online members'.encode())
-#
-#
-# def show_online():
-#     while 1:
-#         print("cadsvwebvwerv")
-#         connectionSocket, addr = server_socket.accept()
-#         connectionSocket.send('Show Online'.encode())
-#         online_members = connectionSocket.recv(1024)
-#         if online_members == 'Online':
-#             broadcast(f'There are {len(Socket_lst)} Online members'.encode())
-#             print(f'There are {len(Socket_lst)} Online members'.encode())
-#         else:
-#             break
-# #         online_thread = threading.Thread(target=recieve_connection())
-# #         online_thread.start()
-
-if __name__ == '__main__':
-    server()
