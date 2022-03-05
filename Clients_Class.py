@@ -1,179 +1,295 @@
 import socket
-import sys
 import threading
-import socket
+import tkinter
+import tkinter.scrolledtext
+from tkinter import simpledialog, LEFT
+from tkinter import messagebox
 from tkinter import *
 
-#all of this parameters are related to our client socket
+
 HOST = '127.0.0.1'
 PORT = 50000
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.connect((HOST, PORT))
+
+class Client:
+
+    def __init__(self , host , port):
+        self.sock = socket.socket(socket.AF_INET , socket.SOCK_STREAM)
+        self.sockUDP = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        msg = tkinter.Tk()
+        msg.withdraw()
+
+        self.gui = False
+        self.running = True
+
+        gui_thread = threading.Thread(target=self.gui_loop)
+        gui_thread.start()
+
+    def gui_loop(self):
+        self.win = tkinter.Tk()
+        self.win.configure(bg="lightgray")
+        self.win.geometry('550x600')
+        canvas = Canvas(
+            self.win,
+            bg="#ffffff",
+            height=600,
+            width=550,
+            bd=0,
+            highlightthickness=0,
+            relief="ridge")
+        canvas.place(x=0, y=0)
+
+        background_img = PhotoImage(file=f"../../Desktop/FinalChat/background.png", master=self.win)
+        background = canvas.create_image(
+            278.0, 299.0,
+            image=background_img)
+
+        entry0_img = PhotoImage(file=f"../../Desktop/FinalChat/img_textBox0.png", master=self.win)
+        entry0_bg = canvas.create_image(
+            352.5, 504.0,
+            image=entry0_img)
+
+        self.input_area = Entry(
+            bd=0,
+            bg="#d4cbcb",
+            highlightthickness=0
+            ,master=self.win)
+
+        self.input_area.place(
+            x=193.0, y=478,
+            width=319.0,
+            height=50
+            )
+
+        entry1_img = PhotoImage(file=f"../../Desktop/FinalChat/img_textBox1.png", master=self.win)
+        entry1_bg = canvas.create_image(
+            81.0, 504.0,
+            image=entry1_img)
+
+        self.private_dest = Entry(
+            bd=0,
+            bg="#d4cbcb",
+            highlightthickness=0, master=self.win)
+
+        self.private_dest.place(
+            x=34.0, y=478,
+            width=94.0,
+            height=50)
+
+        entry2_img = PhotoImage(file=f"../../Desktop/FinalChat/img_textBox2.png", master=self.win)
+        entry2_bg = canvas.create_image(
+            279.0, 40.0,
+            image=entry2_img)
+
+        self.nickname_entrace = Entry(
+            bd=0,
+            bg="#d4cbcb",
+            highlightthickness=0, master=self.win)
+
+        self.nickname_entrace.place(
+            x=240.0, y=25,
+            width=78.0,
+            height=28)
+
+        entry3_img = PhotoImage(file=f"../../Desktop/FinalChat/img_textBox3.png", master=self.win)
+        entry3_bg = canvas.create_image(
+            466.5, 40.0,
+            image=entry3_img)
+
+        entry3 = Entry(
+            bd=0,
+            bg="#d4cbcb",
+            highlightthickness=0, master=self.win)
+
+        entry3.place(
+            x=428.0, y=25,
+            width=77.0,
+            height=28)
+
+        img1 = PhotoImage(file=f"../../Desktop/FinalChat/img1.png", master=self.win)
+        self.login_btn = Button(
+            image=img1,
+            borderwidth=0,
+            highlightthickness=0,
+            command=self.login,
+            relief="flat", master=self.win)
+
+        self.login_btn.place(
+            x=8, y=13,
+            width=120,
+            height=50)
 
 
-# this class will be our gui class
-class Chat:
+        self.text_area = tkinter.scrolledtext.ScrolledText(self.win)
+        self.text_area.pack(padx=10 , pady=5)
+        self.text_area.config(state='disabled' , bg='lightgray')
+        self.text_area.place(x=21, y=68,
+            width=502,
+            height=373)
 
-    def __init__(self):
+        img0 = tkinter.PhotoImage(file=f"../../Desktop/FinalChat/img0.png", master=self.win)
+        self.send_btn = tkinter.Button(
+            self.win,
+            image=img0,
+            borderwidth=0,
+            highlightthickness=0,
+            command=self.write,
+            relief="flat")
 
-        # chat window which is currently hidden
-        self.window = Tk()
-        self.window.withdraw()
+        self.send_btn.place(
+            x=-9, y=542,
+            width=120,
+            height=50)
 
-        # login window
-        self.login = Toplevel()
-        # set the title
-        self.login.title("Login")
-        self.login.resizable(width=True, height=True)
-        self.login.configure(width=400, height=300)
+        img2 = PhotoImage(file=f"../../Desktop/FinalChat/img2.png", master=self.win)
+        self.showOnline_btn = Button(
+            image=img2,
+            borderwidth=0,
+            highlightthickness=0,
+            command=self.showOnline,
+            relief="flat", master=self.win)
 
-
-
-        # creating the login label inside our window
-        self.log = Label(self.login, text="Please login to continue", justify=CENTER, font="Ariel")
-
-        self.log.place(relheight=0.15, relx=0.2, rely=0.07)
-        # create a Label
-        self.labelName = Label(self.login, text="Nickname: ", font="Helvetica 12")
-
-        self.labelName.place(relheight=0.2, relx=0.1, rely=0.2)
-
-        # Now we will create the entrybox
-        self.entrybox = Entry(self.login, font="Helvetica 14")
-
-        self.entrybox.place(relwidth=0.4, relheight=0.12, relx=0.35, rely=0.2)
-        self.entrybox.focus()
-
-        # now we will create the continue button
-        self.continueB = Button(self.login, text="CONTINUE", font="Ariel", command=lambda: self.goAhead(self.entrybox.get()))
-        self.continueB.place(relx=0.4, rely=0.55)
+        self.showOnline_btn.place(
+            x=112, y=545,
+            width=108,
+            height=49)
 
 
-        self.window.mainloop()
+        img3 = PhotoImage(file=f"../../Desktop/FinalChat/img3.png", master=self.win)
+        self.ShowFiles_btn = Button(
+            image=img3,
+            borderwidth=0,
+            highlightthickness=0,
+            command=self.showFiles,
+            relief="flat", master=self.win)
 
-    def goAhead(self, name):
-        self.login.destroy()
-        self.layout(name)
+        self.ShowFiles_btn.place(
+            x=221, y=547,
+            width=104,
+            height=50)
 
-        # the thread to receive messages
-        recieve = threading.Thread(target=self.receive)
-        recieve.start()
+        img4 = PhotoImage(file=f"../../Desktop/FinalChat/img4.png", master=self.win)
+        self.download_btn = Button(
+            image=img4,
+            borderwidth=0,
+            highlightthickness=0,
+            command=self.askFile,
+            relief="flat", master=self.win)
 
-    # The main layout of the chat
-    def layout(self, name):
+        self.download_btn.place(
+            x=326, y=548,
+            width=110,
+            height=50)
+        img5 = PhotoImage(file=f"../../Desktop/FinalChat/img5.png", master=self.win)
+        self.disconnect_btn = Button(
+            image=img5,
+            borderwidth=0,
+            highlightthickness=0,
+            command=self.stop,
+            relief="flat", master=self.win)
 
-        self.name = name
-        # to show chat window
-        self.window.deiconify()
-        self.window.title("CHATROOM")
-        self.window.resizable(width=False, height=False)
-        self.window.configure(width=600, height=600,bg="#17202A")
-
-        self.labelHead = Label(self.window, bg="#17202A", fg="#EAECEE", text=self.name,font="Helvetica 13 bold", pady=5)
-        self.labelHead.place(relwidth=1)
-
-        self.line = Label(self.window, width=450, bg="#ABB2B9")
-
-        self.line.place(relwidth=1,rely=0.07, relheight=0.012)
-
-        self.textCons = Text(self.window, width=20, height=2, bg="#17202A",fg="#EAECEE",font="Helvetica 14", padx=4,pady=4)
-        self.textCons.pack(pady=5)
-        self.textCons.place(relheight=0.4,relwidth=1, rely=0.08)
-
-        self.labelBottom = Label(self.window, bg="#ABB2B9",height=80)
-        self.labelBottom.place(relwidth=1,rely=0.5)
-
-        self.entryMsg = Entry(self.labelBottom,bg="#2C3E50",fg="#EAECEE",font="Helvetica 13")
-
-        # place the given widget
-        # into the gui window
-        self.entryMsg.place(relwidth=0.4, relheight=0.08, rely=0.010, relx=0.011)
-        self.entryMsg.focus()
-
-        self.privatMsg= Entry(self.labelBottom, bg="#2C3E50",fg="#EAECEE",font="Helvetica 13")
-        self.privatMsg.place(relwidth=0.3, relheight=0.075, rely=0.09, relx=0.011)
-        self.privatMsg.focus()
-        # create a Send Button
-        self.buttonMsg = Button(self.labelBottom, text="Send", font="Helvetica 10 bold",width=20,bg="#ABB2B9",command=lambda:threading.Thread(self.sendButton(self.entryMsg.get())).start())
-        self.buttonMsg.place(relx=0.5,rely=0.008,relheight=0.06,relwidth=0.22)
-        self.show_onlineB= Button(self.labelBottom,text="Show Online", font="Helvetica 10 bold",width=20,bg="#ABB2B9" )
-        self.show_onlineB.place(relx=0.77, rely=0.008, relheight=0.06, relwidth=0.22)
-        self.privateB = Button(self.labelBottom, text= "Private Message", font="Helvetica 10 bold",bg="#ABB2B9")
-        self.privateB.place(relx=0.5, rely=0.087, relheight= 0.06, relwidth=0.22, )
-        self.showFilesB = Button(self.labelBottom, text= "Show Files",font="Helvetica 10 bold",bg="#ABB2B9")
-        self.showFilesB.place(relx=0.77, rely=0.087, relheight=0.06, relwidth=0.22, )
-
-        self.clearB = Button(self.labelBottom, text="Clear Chat", font="Helvetica 10 bold",bg="#ABB2B9",command= lambda:self.clear_chat())
-        #self.clearB.pack()
-        self.clearB.place(relx=0.77, rely=0.16, relheight=0.06, relwidth=0.22)
-        #self.textCons.update()
-        # self.privatentry = Entry(self.labelBottom,bg="#2C3E50",fg="#EAECEE",font="Helvetica 13")
-        # self.entryMsg.place(relwidth=0.07, relheight=0.008, rely=0.010, relx=0.011)
-
-        self.textCons.config(cursor="arrow")
+        self.disconnect_btn.place(
+            x=436, y=547,
+            width=107,
+            height=43)
 
 
-        #create a scroll bar
-        scrollbar = Scrollbar(self.textCons)
+        self.gui = True
 
-        # place the scroll bar
-        # into the gui window
-        scrollbar.place(relheight=1,relx=0.974)
+        self.win.protocol("WM_DELETE_WINDOW" , self.stop)
 
-        scrollbar.config(command=self.textCons.yview)
+        self.win.mainloop()
 
-        self.textCons.config(state=DISABLED)
-    def show_online(self):
-        client_socket.send("show online".encode())
+    def showOnline(self):
+        self.sock.send("get_users".encode('utf-8'))
+
+    def write(self):
+        print(self.private_dest.get())
+        if self.private_dest.get() == "":
+            message = f"{self.nickname} : {self.input_area.get()}\n"
+        else:
+            message = f"{self.nickname} : /{self.private_dest.get()} {self.input_area.get()}\n"
+        self.sock.send(message.encode('utf-8'))
+        self.input_area.delete('0' , 'end')
+
+    def showFiles(self):
+        self.sock.send("show_files".encode('utf-8'))
+
+    def stop(self):
+        self.win.destroy()
+        self.sock.send(f"{self.nickname} has disconnected!".encode('utf-8'))
+        self.running = False
+        self.sock.close()
+        exit(0)
+
+    def disConnect(self):
+        self.win.destroy()
+        self.sock.send(f"{self.nickname} has disconnected! \n".encode('utf-8'))
+        self.running = False
+        self.sock.close()
+        exit(0)
+
+    def askFile(self):
+        filename = simpledialog.askstring("File", "Enter file name:", parent=self.win)
+        savingFileName = simpledialog.askstring("File", "Save as ?:", parent=self.win)
+        self.sock.send(f"{self.nickname} : /download {filename} {savingFileName}\n".encode('utf-8'))
+
+    def recieve(self):
+        while self.running:
+            # try:
+                message = self.sock.recv(1024).decode('utf-8')
+                messageCheck = message.split(" ")
+                print(messageCheck)
+
+                if messageCheck[0] == '/download':
+                    print("LOL")
+                    port =int(messageCheck[2])
+                    self.sockUDP.connect((messageCheck[1] , port))
+                    filename = messageCheck[3]
+                    fileSize = int(messageCheck[4])
+
+                    self.sockUDP.sendto("Connected received !".encode() , (messageCheck[1] , port))
+                    # recieve_file_thread = threading.Thread(target=self.recieveFile)
+                    # recieve_file_thread.start()
+                    self.recieveFile(filename , fileSize)
+                    if self.gui:
+                        self.text_area.config(state='normal')
+                        self.text_area.insert('end' , f"{filename} downloaded !\n")
+                        self.text_area.yview('end')
+                        self.text_area.config(state = 'disabled')
 
 
-    def clear_chat(self):
-        self.textCons.configure(state=NORMAL)
-        self.textCons.delete('1.0',END )
-        self.textCons.configure(state=DISABLED)
-
-
-    # function to basically start the thread for sending messages
-    def sendButton(self, msg):
-        self.textCons.config(state=DISABLED)
-        self.msg = msg
-        self.entryMsg.delete(0, END)
-        snd = threading.Thread(target=self.sendMessage)
-        snd.start()
-
-    # function to receive messages
-    def receive(self):
-        while True:
-            try:
-                message = client_socket.recv(1024).decode()
-
-                # if the messages from the server is NAME send the client's name
-                if message == 'NAME':
-                    client_socket.send(self.name.encode())
+                elif message == "NICK":
+                    self.sock.send(self.nickname.encode('utf-8'))
                 else:
-                    # insert messages to text box
-                    self.textCons.config(state=NORMAL)
-                    self.textCons.insert(END, message + "\n\n")
-
-                    self.textCons.config(state=DISABLED)
-                    self.textCons.see(END)
-            except:
-                # an error will be printed on the command line or console if there's an error
-                print("An error occured!")
-                client_socket.close()
-                break
-
-    # function to send messages
-    def sendMessage(self):
-        self.textCons.config(state=DISABLED)
-        while True:
-            message = (f"{self.name}: {self.msg}")
-            client_socket.send(message.encode())
-            print(client_socket.type)
-            break
-
-        # create a GUI class object
+                    if self.gui:
+                        self.text_area.config(state='normal')
+                        self.text_area.insert('end' , message)
+                        self.text_area.yview('end')
+                        self.text_area.config(state = 'disabled')
+            # except ConnectionAbortedError:
+            #     break
+            # except:
+            #     print("Error")
+            #     self.sock.close()
+            #     break
 
 
-chat = Chat()
+    def recieveFile(self , filename , fileSize):
+        with open(filename, 'wb') as f:
+            while fileSize > 0:
+                bytes_read, _ = self.sockUDP.recvfrom(2048)
+                if not bytes_read:
+                    break
+                fileSize -= len(bytes_read)
+                f.write(bytes_read)
+                pass
+    def login(self):
+        # self.nickname = simpledialog.askstring("Nickname", "Enter your nickname:", parent=self.win)
+        self.nickname = self.nickname_entrace.get()
+        self.sock.connect((HOST, PORT))
+        recieve_thread = threading.Thread(target=self.recieve)
+        recieve_thread.start()
+
+client = Client(HOST, PORT)
 
