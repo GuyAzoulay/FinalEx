@@ -21,6 +21,7 @@ class Client:
 
         self.gui = False
         self.running = True
+        self.connectedTCP = False
 
         gui_thread = threading.Thread(target=self.gui_loop)
         gui_thread.start()
@@ -39,12 +40,12 @@ class Client:
             relief="ridge")
         canvas.place(x=0, y=0)
 
-        background_img = PhotoImage(file=f"../Messanger_Project/background.png", master=self.win)
+        background_img = PhotoImage(file=f"../Messanger_Project/GUI/background.png", master=self.win)
         background = canvas.create_image(
             278.0, 299.0,
             image=background_img)
 
-        entry0_img = PhotoImage(file=f"../Messanger_Project/img_textBox0.png", master=self.win)
+        entry0_img = PhotoImage(file=f"../Messanger_Project/GUI/img_textBox0.png", master=self.win)
         entry0_bg = canvas.create_image(
             352.5, 504.0,
             image=entry0_img)
@@ -61,7 +62,7 @@ class Client:
             height=50
         )
 
-        entry1_img = PhotoImage(file=f"../Messanger_Project/img_textBox1.png", master=self.win)
+        entry1_img = PhotoImage(file=f"../Messanger_Project/GUI/img_textBox1.png", master=self.win)
         entry1_bg = canvas.create_image(
             81.0, 504.0,
             image=entry1_img)
@@ -76,7 +77,7 @@ class Client:
             width=94.0,
             height=50)
 
-        entry2_img = PhotoImage(file=f"../Messanger_Project/img_textBox2.png", master=self.win)
+        entry2_img = PhotoImage(file=f"../Messanger_Project/GUI/img_textBox2.png", master=self.win)
         entry2_bg = canvas.create_image(
             279.0, 40.0,
             image=entry2_img)
@@ -91,7 +92,7 @@ class Client:
             width=78.0,
             height=28)
 
-        entry3_img = PhotoImage(file=f"../Messanger_Project/img_textBox3.png", master=self.win)
+        entry3_img = PhotoImage(file=f"../Messanger_Project/GUI/img_textBox3.png", master=self.win)
         entry3_bg = canvas.create_image(
             466.5, 40.0,
             image=entry3_img)
@@ -106,7 +107,7 @@ class Client:
             width=77.0,
             height=28)
 
-        img1 = PhotoImage(file=f"../Messanger_Project/img1.png", master=self.win)
+        img1 = PhotoImage(file=f"../Messanger_Project/GUI/img1.png", master=self.win)
         self.login_btn = Button(
             image=img1,
             borderwidth=0,
@@ -126,7 +127,7 @@ class Client:
                              width=502,
                              height=373)
 
-        img0 = tkinter.PhotoImage(file=f"../Messanger_Project/img0.png", master=self.win)
+        img0 = tkinter.PhotoImage(file=f"../Messanger_Project/GUI/img0.png", master=self.win)
         self.send_btn = tkinter.Button(
             self.win,
             image=img0,
@@ -140,7 +141,7 @@ class Client:
             width=120,
             height=50)
 
-        img2 = PhotoImage(file=f"../Messanger_Project/img2.png", master=self.win)
+        img2 = PhotoImage(file=f"../Messanger_Project/GUI/img2.png", master=self.win)
         self.showOnline_btn = Button(
             image=img2,
             borderwidth=0,
@@ -153,7 +154,7 @@ class Client:
             width=108,
             height=49)
 
-        img3 = PhotoImage(file=f"../Messanger_Project/img3.png", master=self.win)
+        img3 = PhotoImage(file=f"../Messanger_Project/GUI/img3.png", master=self.win)
         self.ShowFiles_btn = Button(
             image=img3,
             borderwidth=0,
@@ -166,7 +167,7 @@ class Client:
             width=104,
             height=50)
 
-        img4 = PhotoImage(file=f"../Messanger_Project/img4.png", master=self.win)
+        img4 = PhotoImage(file=f"../Messanger_Project/GUI/img4.png", master=self.win)
         self.download_btn = Button(
             image=img4,
             borderwidth=0,
@@ -178,7 +179,7 @@ class Client:
             x=326, y=548,
             width=110,
             height=50)
-        img5 = PhotoImage(file=f"../Messanger_Project/img5.png", master=self.win)
+        img5 = PhotoImage(file=f"../Messanger_Project/GUI/img5.png", master=self.win)
         self.disconnect_btn = Button(
             image=img5,
             borderwidth=0,
@@ -219,12 +220,6 @@ class Client:
         self.sock.close()
         exit(0)
 
-    def disConnect(self):
-        self.win.destroy()
-        self.sock.send(f"{self.nickname} has disconnected! \n".encode('utf-8'))
-        self.running = False
-        self.sock.close()
-        exit(0)
 
     def askFile(self):
         filename = simpledialog.askstring("File", "Enter file name:", parent=self.win)
@@ -246,7 +241,9 @@ class Client:
                     fileSize = int(messageCheck[4])
 
                     self.sockUDP.sendto("Connected received !".encode(), (messageCheck[1], port))
-                    self.recieveFile(filename, fileSize)
+                    getFile_thread = threading.Thread(target=self.recieveFile , args=[filename , fileSize])
+                    getFile_thread.start()
+                    # self.recieveFile(filename, fileSize)
                     if self.gui:
                         self.text_area.config(state='normal')
                         self.text_area.insert('end', f"{filename} downloaded !\n")
@@ -267,42 +264,36 @@ class Client:
 
     def recieveFile(self, filename, fileSize):
         dataList = []
-        while fileSize > 0:
+
+        while fileSize != 0:
             bytes_read, _ = self.sockUDP.recvfrom(2053)
-            id = bytes_read
-            id = id[:2]
-            data = bytes_read[5:]
-            #print(bytes_read)
-            dataList.append(bytes_read)
-            if id[0] == '0':
-                id = int(id[1:])
-                self.sockUDP.sendto(f'ack:0{id}'.encode(), _)
-                #print(id)
+            if bytes_read not in dataList:
+                dataList.append(bytes_read)
+                self.sockUDP.sendto(f'ack'.encode(), _)
+                fileSize -= len(bytes_read)
             else:
-                id = int(id)
-                self.sockUDP.sendto(f'ack:{id}'.encode(), _)
-               # print(id)
+                self.sockUDP.sendto(f'ack'.encode(), _)
+
             if not bytes_read:
                 break
 
-            fileSize -= len(bytes_read)
-        temp = dataList[3]
-        dataList[3] = dataList[2]
-        dataList[2] = temp
-        dataList.sort(key=lambda x: x[0:2])
-        print(dataList)
+
 
         with open(filename, 'wb') as f:
             for elem in dataList:
-                f.write(elem[5:])
+                f.write(elem)
 
-        # sorting data structure
+
+
 
     def login(self):
-        self.nickname = self.nickname_entrace.get()
-        self.sock.connect((HOST, PORT))
-        recieve_thread = threading.Thread(target=self.recieve)
-        recieve_thread.start()
+        if self.connectedTCP == False:
+            self.nickname = self.nickname_entrace.get()
+            self.sock.connect((HOST, PORT))
+            self.connectedTCP = True
+            recieve_thread = threading.Thread(target=self.recieve)
+            recieve_thread.start()
 
 
 client = Client(HOST, PORT)
+
