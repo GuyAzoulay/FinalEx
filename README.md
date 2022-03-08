@@ -124,14 +124,6 @@ him to connect to our server.
 In aim to run the code, we run it via an exe file,
 At first we need to run the the server:
 
-![serverrrrr](https://user-images.githubusercontent.com/87694635/156875531-6a5c75dc-dd50-4bd5-a478-dcde462da9d5.png)
-
-After the server is working we can start to login with different clients:
-
-![clientttt](https://user-images.githubusercontent.com/87694635/156875641-0b4c9c74-daf2-4dce-9490-3a05947ea5eb.png)
-
-and now all the communication can be started between all the clients.
- 
 
 
 
